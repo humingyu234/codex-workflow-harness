@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "codex-harness"
+version = "0.1.0"
+description = "A lightweight Codex-first delivery harness."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Codex Harness Contributors" }
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0"
+]
+
+[project.scripts]
+codex-harness = "codex_harness.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
