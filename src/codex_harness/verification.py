@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shlex
 import subprocess
@@ -43,6 +44,7 @@ def verify_task(request: TaskVerifyRequest) -> TaskVerifyResult:
         timeout=request.check_timeout,
     )
     current_status = _run_git(root, "status", "--porcelain")
+    source_state = _collect_source_state(root, task_dir, contract)
     changed_files = _changed_files_since_baseline(
         baseline_status=_git_stdout(baseline, "status_porcelain"),
         current_status=current_status["stdout"],
@@ -66,6 +68,11 @@ def verify_task(request: TaskVerifyRequest) -> TaskVerifyResult:
         "changed_files": changed_files,
         "issues": issues,
         "checks": check_results,
+        "source_state": source_state,
+        "freshness": {
+            "is_stale": False,
+            "reason": "generated_for_current_source_state",
+        },
         "git": {
             "current_status": current_status,
         },
@@ -83,6 +90,31 @@ def verify_task(request: TaskVerifyRequest) -> TaskVerifyResult:
         report_path=report_path,
         summary_path=summary_path,
     )
+
+
+def read_verify_freshness(root: Path, task_id: str | None = None) -> dict[str, object]:
+    root = root.resolve()
+    task_dir = _resolve_task_dir(root, task_id)
+    contract = _read_json(task_dir / "contract.json")
+    report_path = task_dir / "verify.json"
+    if not report_path.exists():
+        return {
+            "is_stale": True,
+            "reason": "verify_missing",
+            "current_source_state": _collect_source_state(root, task_dir, contract),
+            "recorded_source_state": None,
+        }
+
+    report = _read_json(report_path)
+    recorded_source_state = report.get("source_state")
+    current_source_state = _collect_source_state(root, task_dir, contract)
+    is_stale = recorded_source_state != current_source_state
+    return {
+        "is_stale": is_stale,
+        "reason": "source_state_changed" if is_stale else "fresh",
+        "current_source_state": current_source_state,
+        "recorded_source_state": recorded_source_state,
+    }
 
 
 def _resolve_task_dir(root: Path, task_id: str | None) -> Path:
@@ -302,6 +334,38 @@ def _evaluate_issues(
     return issues
 
 
+def _collect_source_state(root: Path, task_dir: Path, contract: dict[str, object]) -> dict[str, object]:
+    diff = _run_git(root, "diff", "--binary", "--", ".")
+    untracked_files = _untracked_files(root)
+    return {
+        "schema_version": 1,
+        "head": _run_git(root, "rev-parse", "HEAD"),
+        "diff_hash": _hash_text(diff["stdout"]),
+        "untracked_hash": _hash_untracked_files(root, untracked_files),
+        "contract_hash": _hash_file(task_dir / "contract.json"),
+        "changed_files": _git_changed_files(root),
+        "untracked_files": untracked_files,
+    }
+
+
+def _git_changed_files(root: Path) -> list[str]:
+    status = _run_git(root, "status", "--porcelain")
+    return sorted(
+        path
+        for path in _parse_porcelain_paths(status["stdout"])
+        if not path.startswith(f"{HARNESS_DIR}/")
+    )
+
+
+def _untracked_files(root: Path) -> list[str]:
+    status = _run_git(root, "ls-files", "--others", "--exclude-standard")
+    return sorted(
+        path.strip()
+        for path in status["stdout"].splitlines()
+        if path.strip() and not path.startswith(f"{HARNESS_DIR}/")
+    )
+
+
 def _changed_files_since_baseline(baseline_status: str, current_status: str) -> list[str]:
     baseline_files = set(_parse_porcelain_paths(baseline_status))
     current_files = set(_parse_porcelain_paths(current_status))
@@ -481,3 +545,25 @@ def _decode_timeout_output(value: str | bytes | None) -> str:
     if isinstance(value, bytes):
         return value.decode(errors="replace")
     return value
+
+
+def _hash_text(value: str) -> str:
+    return f"sha256:{hashlib.sha256(value.encode('utf-8')).hexdigest()}"
+
+
+def _hash_file(path: Path) -> str:
+    return f"sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}"
+
+
+def _hash_untracked_files(root: Path, paths: list[str]) -> str:
+    digest = hashlib.sha256()
+    for relative_path in paths:
+        path = root / relative_path
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(b"\0")
+        if path.is_file():
+            digest.update(path.read_bytes())
+        else:
+            digest.update(b"<non-file>")
+        digest.update(b"\0")
+    return f"sha256:{digest.hexdigest()}"
