@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shlex
 import subprocess
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -36,6 +37,7 @@ def verify_task(request: TaskVerifyRequest) -> TaskVerifyResult:
 
     check_results = _run_required_checks(
         root=root,
+        task_dir=task_dir,
         commands=_as_string_list(contract.get("required_checks", [])),
         run_checks=request.run_checks,
         timeout=request.check_timeout,
@@ -99,54 +101,138 @@ def _resolve_task_dir(root: Path, task_id: str | None) -> Path:
 
 def _run_required_checks(
     root: Path,
+    task_dir: Path,
     commands: list[str],
     run_checks: bool,
     timeout: int,
 ) -> list[dict[str, object]]:
+    evidence_dir = task_dir / "evidence" / "checks"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+
     if not run_checks:
         return [
             {
                 "command": command,
+                "cwd": str(root),
                 "skipped": True,
                 "exit_code": None,
-                "stdout": "",
-                "stderr": "",
+                "started_at": None,
+                "finished_at": None,
+                "duration_ms": None,
+                "timed_out": False,
+                "stdout_path": None,
+                "stderr_path": None,
             }
             for command in commands
         ]
 
-    return [_run_check(root, command, timeout) for command in commands]
+    return [
+        _run_check(
+            root=root,
+            command=command,
+            timeout=timeout,
+            evidence_dir=evidence_dir,
+            index=index,
+        )
+        for index, command in enumerate(commands, start=1)
+    ]
 
 
-def _run_check(root: Path, command: str, timeout: int) -> dict[str, object]:
+def _run_check(root: Path, command: str, timeout: int, evidence_dir: Path, index: int) -> dict[str, object]:
+    stdout_path = evidence_dir / f"check-{index:03d}.stdout.log"
+    stderr_path = evidence_dir / f"check-{index:03d}.stderr.log"
+    started_at = _now()
+    started_perf = time.perf_counter()
+
     try:
         argv = shlex.split(command)
     except ValueError as exc:
+        finished_at = _now()
+        _write_text(stdout_path, "")
+        _write_text(stderr_path, f"Could not parse command: {exc}\n")
         return {
             "command": command,
+            "cwd": str(root),
             "skipped": False,
             "exit_code": 127,
-            "stdout": "",
-            "stderr": f"Could not parse command: {exc}",
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "duration_ms": _duration_ms(started_perf),
+            "timed_out": False,
+            "stdout_path": _relative_to_task(evidence_dir, stdout_path),
+            "stderr_path": _relative_to_task(evidence_dir, stderr_path),
         }
 
     if not argv:
+        finished_at = _now()
+        _write_text(stdout_path, "")
+        _write_text(stderr_path, "Empty check command.\n")
         return {
             "command": command,
+            "cwd": str(root),
             "skipped": False,
             "exit_code": 127,
-            "stdout": "",
-            "stderr": "Empty check command.",
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "duration_ms": _duration_ms(started_perf),
+            "timed_out": False,
+            "stdout_path": _relative_to_task(evidence_dir, stdout_path),
+            "stderr_path": _relative_to_task(evidence_dir, stderr_path),
         }
 
-    result = _run_command(root, tuple(argv), timeout=timeout)
+    result, timed_out = _run_check_command(root, tuple(argv), timeout=timeout)
+    finished_at = _now()
+    _write_text(stdout_path, result.stdout)
+    _write_text(stderr_path, result.stderr)
     return {
         "command": command,
+        "cwd": str(root),
         "skipped": False,
         "exit_code": result.returncode,
-        "stdout": result.stdout,
-        "stderr": result.stderr,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "duration_ms": _duration_ms(started_perf),
+        "timed_out": timed_out,
+        "stdout_path": _relative_to_task(evidence_dir, stdout_path),
+        "stderr_path": _relative_to_task(evidence_dir, stderr_path),
     }
+
+
+def _run_check_command(
+    root: Path,
+    command: tuple[str, ...],
+    timeout: int,
+) -> tuple[subprocess.CompletedProcess[str], bool]:
+    try:
+        result = subprocess.run(
+            command,
+            cwd=root,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+        return result, False
+    except FileNotFoundError as exc:
+        return (
+            subprocess.CompletedProcess(
+                args=command,
+                returncode=127,
+                stdout="",
+                stderr=str(exc),
+            ),
+            False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        return (
+            subprocess.CompletedProcess(
+                args=command,
+                returncode=124,
+                stdout=_decode_timeout_output(exc.stdout),
+                stderr=_decode_timeout_output(exc.stderr) + f"\nTimed out after {timeout} seconds.\n",
+            ),
+            True,
+        )
 
 
 def _evaluate_issues(
@@ -334,8 +420,22 @@ def _render_check_list(checks: object) -> str:
         if not isinstance(check, dict):
             continue
         skipped = " skipped" if check.get("skipped") else ""
-        lines.append(f"- `{check.get('command', '')}` -> {check.get('exit_code')}{skipped}")
+        duration = check.get("duration_ms")
+        duration_note = f", {duration}ms" if isinstance(duration, int) else ""
+        logs = _render_check_logs(check)
+        lines.append(f"- `{check.get('command', '')}` -> {check.get('exit_code')}{skipped}{duration_note}{logs}")
     return "\n".join(lines) if lines else "- Not specified."
+
+
+def _render_check_logs(check: dict[str, object]) -> str:
+    stdout_path = check.get("stdout_path")
+    stderr_path = check.get("stderr_path")
+    parts: list[str] = []
+    if isinstance(stdout_path, str):
+        parts.append(f"stdout: `{stdout_path}`")
+    if isinstance(stderr_path, str):
+        parts.append(f"stderr: `{stderr_path}`")
+    return f" ({', '.join(parts)})" if parts else ""
 
 
 def _render_list(values: object) -> str:
@@ -356,3 +456,28 @@ def _read_json(path: Path) -> dict[str, object]:
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _write_text(path: Path, content: str) -> None:
+    path.write_text(content, encoding="utf-8")
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat(timespec="milliseconds")
+
+
+def _duration_ms(started_perf: float) -> int:
+    return max(0, round((time.perf_counter() - started_perf) * 1000))
+
+
+def _relative_to_task(evidence_dir: Path, path: Path) -> str:
+    task_dir = evidence_dir.parents[1]
+    return path.relative_to(task_dir).as_posix()
+
+
+def _decode_timeout_output(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode(errors="replace")
+    return value

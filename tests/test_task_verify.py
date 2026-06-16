@@ -36,6 +36,19 @@ def test_task_verify_passes_for_allowed_change_and_passing_check(tmp_path: Path)
     assert report["verdict"] == "pass"
     assert report["changed_files"] == ["src/app.py"]
     assert report["issues"] == []
+    check = report["checks"][0]
+    assert check["command"] == "python3 -c 'print(\"ok\")'"
+    assert check["cwd"] == str(tmp_path)
+    assert check["exit_code"] == 0
+    assert check["timed_out"] is False
+    assert isinstance(check["duration_ms"], int)
+    assert isinstance(check["started_at"], str)
+    assert isinstance(check["finished_at"], str)
+    assert check["stdout_path"] == "evidence/checks/check-001.stdout.log"
+    assert check["stderr_path"] == "evidence/checks/check-001.stderr.log"
+    assert (tmp_path / ".codex-harness" / "tasks" / task_id / check["stdout_path"]).read_text(
+        encoding="utf-8"
+    ) == "ok\n"
 
 
 def test_task_verify_fails_when_denied_file_changed(tmp_path: Path) -> None:
@@ -89,6 +102,38 @@ def test_task_verify_fails_when_required_check_fails(tmp_path: Path) -> None:
     report = _read_report(tmp_path, task_id)
     assert report["verdict"] == "fail"
     assert report["issues"][0]["category"] == "required_checks_failed"
+    check = report["checks"][0]
+    assert check["exit_code"] == 3
+    assert check["stdout_path"] == "evidence/checks/check-001.stdout.log"
+    assert check["stderr_path"] == "evidence/checks/check-001.stderr.log"
+
+
+def test_task_verify_records_parse_errors_as_evidence_logs(tmp_path: Path) -> None:
+    _git_init(tmp_path)
+
+    assert main(
+        [
+            "task",
+            "start",
+            "Run unparseable check",
+            "--root",
+            str(tmp_path),
+            "--check",
+            "python3 -c '",
+        ]
+    ) == 0
+
+    task_id = _only_task_id(tmp_path)
+
+    assert main(["task", "verify", task_id, "--root", str(tmp_path)]) == 1
+
+    report = _read_report(tmp_path, task_id)
+    check = report["checks"][0]
+    assert check["exit_code"] == 127
+    stderr = (tmp_path / ".codex-harness" / "tasks" / task_id / check["stderr_path"]).read_text(
+        encoding="utf-8"
+    )
+    assert "Could not parse command" in stderr
 
 
 def _git_init(root: Path) -> None:
