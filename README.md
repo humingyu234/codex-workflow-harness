@@ -33,6 +33,8 @@ codex-harness task start "Add worker doctor" \
   --check "python -m pytest -q" \
   --acceptance "doctor reports worker readiness"
 codex-harness task verify
+codex-harness task review-brief
+codex-harness task review-record --verdict pass --reviewer fresh-codex
 ```
 
 `task start` creates a task directory under `.codex-harness/tasks/` with a
@@ -41,6 +43,12 @@ contract, git baseline, spec, plan, first phase handoff, and task log.
 `task verify` compares the current git status with the task baseline, checks
 allowed/denied file boundaries, runs required checks, and writes `verify.json`
 plus `verify.md` into the task directory.
+
+`task review-brief` writes a fresh-context reviewer packet with the task
+contract, verification state, source state, and git diff.
+
+`task review-record` records the independent reviewer verdict and binds it to
+the source state captured by the review brief.
 
 ## Development
 

@@ -5,6 +5,13 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__
+from .review import (
+    ReviewBriefRequest,
+    ReviewRecordRequest,
+    StaleReviewBriefError,
+    create_review_brief,
+    record_review,
+)
 from .tasks import TaskStartRequest, start_task
 from .verification import TaskVerifyRequest, verify_task
 
@@ -88,6 +95,43 @@ def build_parser() -> argparse.ArgumentParser:
         default=300,
         help="Timeout per required check in seconds.",
     )
+    task_review_brief = task_subparsers.add_parser("review-brief", help="Generate a fresh-context review brief.")
+    task_review_brief.add_argument("task_id", nargs="?", help="Task id. Defaults to the latest task.")
+    task_review_brief.add_argument(
+        "--root",
+        default=".",
+        help="Target project root. Defaults to the current directory.",
+    )
+    task_review_record = task_subparsers.add_parser("review-record", help="Record an independent review result.")
+    task_review_record.add_argument("task_id", nargs="?", help="Task id. Defaults to the latest task.")
+    task_review_record.add_argument(
+        "--root",
+        default=".",
+        help="Target project root. Defaults to the current directory.",
+    )
+    task_review_record.add_argument(
+        "--verdict",
+        required=True,
+        choices=("pass", "repair", "block"),
+        help="Review verdict.",
+    )
+    task_review_record.add_argument(
+        "--reviewer",
+        default="external-reviewer",
+        help="Reviewer name or role.",
+    )
+    task_review_record.add_argument(
+        "--finding",
+        action="append",
+        default=[],
+        help="Reviewer finding. Repeat as needed.",
+    )
+    task_review_record.add_argument(
+        "--residual-risk",
+        action="append",
+        default=[],
+        help="Residual risk noted by the reviewer. Repeat as needed.",
+    )
     return parser
 
 
@@ -135,6 +179,41 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Task: {result.task_id}")
         print(f"Report: {result.report_path}")
         print(f"Summary: {result.summary_path}")
+        return 0 if result.verdict == "pass" else 1
+
+    if args.command == "task" and args.task_command == "review-brief":
+        try:
+            result = create_review_brief(
+                ReviewBriefRequest(
+                    root=Path(args.root),
+                    task_id=args.task_id,
+                )
+            )
+        except FileNotFoundError as exc:
+            parser.error(str(exc))
+        print(f"Review brief: {result.brief_path}")
+        print(f"Metadata: {result.metadata_path}")
+        print(f"Diff: {result.diff_path}")
+        print(f"Readiness: {result.readiness}")
+        return 0
+
+    if args.command == "task" and args.task_command == "review-record":
+        try:
+            result = record_review(
+                ReviewRecordRequest(
+                    root=Path(args.root),
+                    task_id=args.task_id,
+                    verdict=args.verdict,
+                    reviewer=args.reviewer,
+                    findings=tuple(args.finding),
+                    residual_risks=tuple(args.residual_risk),
+                )
+            )
+        except (FileNotFoundError, ValueError, StaleReviewBriefError) as exc:
+            parser.error(str(exc))
+        print(f"Review record: {result.record_path}")
+        print(f"Summary: {result.summary_path}")
+        print(f"Verdict: {result.verdict}")
         return 0 if result.verdict == "pass" else 1
 
     parser.print_help()
