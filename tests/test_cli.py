@@ -10,6 +10,7 @@ def test_help_parser_mentions_project_name() -> None:
 
     assert "codex-harness" in help_text
     assert "doctor" in help_text
+    assert "task" in help_text
 
 
 def test_doctor_command_reports_ok(capsys) -> None:
@@ -18,4 +19,3 @@ def test_doctor_command_reports_ok(capsys) -> None:
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "codex-harness: ok" in captured.out
-
