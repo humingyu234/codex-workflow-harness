@@ -98,8 +98,13 @@ review again.
 
 ### 7. Proof Pack
 
-For delivery work, generate a proof pack once the command exists. The proof pack
-should require fresh passing verification and a fresh passing review.
+For delivery work, generate a proof pack after verification and review pass.
+
+```bash
+codex-harness task proof-pack
+```
+
+The proof pack requires fresh passing verification and a fresh passing review.
 
 ## Non-Goals
 

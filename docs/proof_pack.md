@@ -8,6 +8,15 @@ A proof pack is the final human-readable delivery artifact for a task.
 It should let a reviewer understand what happened without reading the whole
 chat history.
 
+Generate it with:
+
+```bash
+codex-harness task proof-pack
+```
+
+The command should fail unless the task has fresh passing verification and a
+fresh passing review result without blocking P0/P1 findings.
+
 ## Required Sections
 
 ```text

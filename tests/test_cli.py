@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from codex_harness.cli import build_parser, main
 
 
@@ -11,6 +13,15 @@ def test_help_parser_mentions_project_name() -> None:
     assert "codex-harness" in help_text
     assert "doctor" in help_text
     assert "task" in help_text
+
+
+def test_task_help_mentions_proof_pack(capsys) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["task", "--help"])
+
+    captured = capsys.readouterr()
+    assert exc.value.code == 0
+    assert "proof-pack" in captured.out
 
 
 def test_doctor_command_reports_ok(capsys) -> None:

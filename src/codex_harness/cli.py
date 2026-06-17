@@ -5,6 +5,11 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__
+from .proof import (
+    ProofPackBlockedError,
+    ProofPackRequest,
+    create_proof_pack,
+)
 from .review import (
     ReviewBriefRequest,
     ReviewRecordRequest,
@@ -132,6 +137,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help="Residual risk noted by the reviewer. Repeat as needed.",
     )
+    task_proof_pack = task_subparsers.add_parser("proof-pack", help="Generate final delivery proof artifacts.")
+    task_proof_pack.add_argument("task_id", nargs="?", help="Task id. Defaults to the latest task.")
+    task_proof_pack.add_argument(
+        "--root",
+        default=".",
+        help="Target project root. Defaults to the current directory.",
+    )
     return parser
 
 
@@ -215,6 +227,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Summary: {result.summary_path}")
         print(f"Verdict: {result.verdict}")
         return 0 if result.verdict == "pass" else 1
+
+    if args.command == "task" and args.task_command == "proof-pack":
+        try:
+            result = create_proof_pack(
+                ProofPackRequest(
+                    root=Path(args.root),
+                    task_id=args.task_id,
+                )
+            )
+        except (FileNotFoundError, ProofPackBlockedError) as exc:
+            parser.error(str(exc))
+        print(f"Proof pack: {result.proof_path}")
+        print(f"Metadata: {result.metadata_path}")
+        return 0
 
     parser.print_help()
     return 0

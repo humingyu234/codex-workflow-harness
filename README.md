@@ -35,6 +35,7 @@ codex-harness task start "Add worker doctor" \
 codex-harness task verify
 codex-harness task review-brief
 codex-harness task review-record --verdict pass --reviewer fresh-codex
+codex-harness task proof-pack
 ```
 
 `task start` creates a task directory under `.codex-harness/tasks/` with a
@@ -49,6 +50,10 @@ contract, verification state, source state, and git diff.
 
 `task review-record` records the independent reviewer verdict and binds it to
 the source state captured by the review brief.
+
+`task proof-pack` generates final delivery artifacts only when verification is
+fresh and passing and the review record is fresh and passing without blocking
+P0/P1 findings.
 
 ## Development
 
