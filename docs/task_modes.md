@@ -1,63 +1,26 @@
 # Task Modes
 
-Use the lightest mode that still gives enough trust.
-
-## `direct`
-
-Use for:
-
-- explanations
-- small docs edits
-- obvious one-line fixes
-- source reading
-
-Process:
+This file only answers one question:
 
 ```text
-read relevant source -> make the change or answer -> run focused check if needed
+How much process does this task need?
 ```
 
-## `checked`
+The full workflow lives in `docs/workflow.md`.
 
-Use for:
+| Mode | Use When | Minimum Discipline |
+| --- | --- | --- |
+| `direct` | explanation, source reading, tiny docs, obvious one-line fixes | Work directly; run a focused check if files changed. |
+| `checked` | bounded bugfix or small feature with clear tests | Make a short plan, implement, run targeted checks, summarize evidence. |
+| `controlled` | core logic, public API behavior, multi-file delivery, reviewer/proof needed | Start a task contract, implement one phase, verify, review, then package proof. |
+| `council` | unclear architecture, high uncertainty, competing designs, long multi-phase work | Do spec and red-team planning first, then deliver through `controlled` phases. |
 
-- small bugfixes
-- bounded features
-- low-risk multi-file edits
+## Escalation Rule
 
-Process:
+Move up one mode when the task touches:
 
-```text
-short plan -> implement -> run targeted checks -> summarize evidence
-```
-
-## `controlled`
-
-Use for:
-
-- core logic
-- public API behavior
-- deliverable work
-- tests, review, and proof requirements
-
-Process:
-
-```text
-task contract -> implement phase -> verify -> review -> proof pack
-```
-
-## `council`
-
-Use for:
-
-- unclear architecture
-- high uncertainty
-- competing implementation strategies
-- long-running project work
-
-Process:
-
-```text
-spec -> plan -> red-team review -> phase tasks -> controlled delivery
-```
-
+- trust/evidence/review/proof logic
+- files with broad project impact
+- external delivery or take-home work
+- unclear requirements
+- changes that are hard to verify by inspection

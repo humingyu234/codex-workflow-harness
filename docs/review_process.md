@@ -1,5 +1,8 @@
 # Review Process
 
+This file is the review-specific reference. Use `docs/workflow.md` for the
+full task flow.
+
 The reviewer should be independent from the implementation context.
 
 ## Inputs

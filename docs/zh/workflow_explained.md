@@ -1,129 +1,139 @@
 # Codex Harness 工作流直观解释
 
-这个项目不是要替代 Codex 或 Claude Code。
+这份文档是中文解释版，帮助你快速理解 `codex-harness` 为什么这样设计。
 
-新版定位更清楚：
-
-```text
-Codex / Claude Code 负责计划、探索、写代码、调试、循环修复。
-codex-harness 负责边界、证据、过期检测、review 输入、proof 和交接。
-```
-
-也就是说，harness 不是坐进驾驶位抢方向盘，而是在赛道边上做边界、
-计时、验车和交接记录。
-
-## 为什么不是控制 Codex，而是最大化 Codex
-
-Codex 和 Claude Code 已经有很强的能力：
+## 一句话
 
 ```text
-plan mode
-agent loop
-hooks
-subagents
-resume
-automation
+Codex / Claude Code 负责把活做出来。
+codex-harness 负责证明这次活可信、可审、可交接。
 ```
 
-所以第一版不应该重造这些能力。我们要做的是让模型放心发挥，同时保证：
-
-```text
-任务边界清楚
-测试证据真实
-旧证据不会冒充当前证据
-reviewer 看到的是干净输入
-最终交付能被别人复核
-新 session 可以接上
-```
+它不是要控制 Codex，也不是要重造一个 agent runtime。它更像是开发过程旁边的验收台、证据柜和交接单。
 
 ## 文档和 CLI 各自负责什么
 
-文档负责告诉模型应该怎么工作：
-
 ```text
-AGENTS.md        短入口规则
-docs/roadmap.md 方向和后续阶段
-templates/      spec / plan / phase / review / proof 的稳定格式
-recipes/        后续沉淀不同任务类型的做法
+文档：
+告诉 Codex 和人应该按什么流程工作。
+
+CLI：
+记录真实证据，判断旧证据是否过期，生成 review/proof/handoff 需要的材料。
 ```
 
-CLI 负责那些不能只靠模型自觉的检查：
+更直观一点：
 
 ```text
-task start      记录 contract 和 baseline
-task verify     检查 diff、边界和 required checks
-stale detection 判断旧 verify/review 是否还能用
-review-brief    给独立 reviewer 干净输入
-proof-pack      汇总交付证据
-resume-brief    给新 session 接力
+文档 = 操作说明和模板
+CLI  = 体检仪、验收表、证据柜
 ```
 
-直观理解：
+所以不要把所有东西都写成代码，也不要只靠文档提醒。文档负责方向，CLI 负责不能靠记忆和自觉完成的检查。
+
+## 为什么不是“限制 Codex”
+
+Codex 和 Claude Code 已经很擅长：
 
 ```text
-文档 = 操作说明和流程模板
-CLI  = 体检仪、验收表和证据柜
+理解任务
+探索代码
+制定计划
+写代码
+调试
+循环修复
+使用子 agent 或工具
+恢复会话
 ```
+
+所以 harness 不应该抢这些工作。它要补的是 Codex 本身不会天然替你保存好的东西：
+
+```text
+任务边界
+允许改哪些文件
+不允许改哪些文件
+required checks 的真实输出
+当前代码状态
+旧 verify/review 是否已经过期
+独立 reviewer 应该看什么
+最终交付证据在哪里
+新 session 怎么接上
+```
+
+## 大任务怎么跑
+
+大型任务不要一口气全做完。更稳的方式是：
+
+```text
+1. 先把需求变成 spec
+2. 再拆成 plan 和 phase
+3. 用 task start 记录边界和 baseline
+4. Codex 只做当前 phase
+5. task verify 记录真实检查结果
+6. review-brief 交给 fresh reviewer
+7. 只修 P0/P1 问题
+8. 最后生成 proof pack
+```
+
+这套流程的重点不是“慢”，而是避免最后才发现方向错了、证据旧了、review 看错材料了。
 
 ## 为什么先做 evidence，再做 review/proof
 
-如果测试证据不硬，后面的 review 和 proof 都会变软。
+如果测试和 source state 不可靠，后面的 review 和 proof 都会变软。
 
-所以后续顺序是：
+正确顺序是：
 
 ```text
-1. 先增强 required_checks 证据
-2. 再绑定 source_state 并检测 stale
-3. 再生成 review-brief 和记录 review-result
-4. 最后生成 proof-pack 和 resume-brief
+先确认检查真的跑过
+再确认检查对应的是当前代码
+再把干净材料交给 reviewer
+最后生成可以交付给人的 proof pack
 ```
 
-你可以把它想成：
+这就是为什么前面几个 phase 先做：
 
 ```text
-先确认体检真的做了
-再确认体检报告没有过期
-再把报告交给医生复查
-最后给出可交付证明
+Verification Evidence
+Source State + Stale Detection
+Review Brief + Review Record
+Proof Pack
 ```
 
-## 大型任务怎么跑
-
-一个大任务不要让模型一口气全做完，而是这样：
+## 每个文件大概是干什么的
 
 ```text
-1. Codex 先读 AGENTS.md 和项目 profile，进入计划模式
-2. 产出 spec、plan、phases
-3. 用 codex-harness task start 记录 contract 和 baseline
-4. Codex 只实现当前 phase
-5. codex-harness task verify 检查边界和证据
-6. 生成 review-brief，交给 fresh reviewer
-7. 只修 P0/P1，再重新 verify
-8. 生成 proof-pack 和 resume-brief
+AGENTS.md
+给 Codex 看的短入口规则。
+
+docs/roadmap.md
+写项目方向、后续 phase、哪些暂时不做。
+
+docs/workflow.md
+主流程说明。以后不知道怎么跑任务，先看它。
+
+docs/task_modes.md
+只负责判断任务该走 direct / checked / controlled / council。
+
+docs/review_process.md
+说明独立 reviewer 怎么审、怎么记录结论。
+
+docs/proof_pack.md
+说明最终交付证据包应该包含什么。
+
+docs/templates/
+spec、plan、phase、review、proof 的模板骨架。
 ```
 
-模型是主力工程师，harness 是施工记录、验收清单和交接包。
+## 暂时不做什么
 
-## 为什么不做复杂运行时
-
-第一版刻意不做：
+第一版不要做这些：
 
 ```text
-多 agent runtime
+复杂多 agent runtime
 LangGraph 编排
 自动修复循环
+大型 dashboard
 复杂记忆数据库
-dashboard
+后台调度系统
 ```
 
-因为现在最需要的是：
-
-```text
-顺滑
-稳定
-少 bug
-可复用
-能提高真实开发质量
-```
-
-不是再造一个容易卡住的复杂系统。
+不是它们没价值，而是现在最重要的是让主路径顺滑、稳定、可信。先把证据、review、proof、resume 做稳，再考虑扩展。
