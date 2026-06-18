@@ -36,6 +36,7 @@ codex-harness task verify
 codex-harness task review-brief
 codex-harness task review-record --verdict pass --reviewer fresh-codex
 codex-harness task proof-pack
+codex-harness task resume-brief
 ```
 
 `task start` creates a task directory under `.codex-harness/tasks/` with a
@@ -54,6 +55,10 @@ the source state captured by the review brief.
 `task proof-pack` generates final delivery artifacts only when verification is
 fresh and passing and the review record is fresh and passing without blocking
 P0/P1 findings.
+
+`task resume-brief` generates a fresh-session handoff with current status,
+latest evidence, changed files, files to inspect first, and the recommended
+next step.
 
 ## Development
 

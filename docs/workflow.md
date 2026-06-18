@@ -106,6 +106,17 @@ codex-harness task proof-pack
 
 The proof pack requires fresh passing verification and a fresh passing review.
 
+### 8. Resume Brief
+
+When handing the task to a fresh session, generate a resume brief.
+
+```bash
+codex-harness task resume-brief
+```
+
+The resume brief reports the current task status, latest evidence, changed
+files, files to inspect first, and the next recommended step.
+
 ## Non-Goals
 
 These belong in `docs/roadmap.md`, but the short version is:

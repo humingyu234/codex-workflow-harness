@@ -22,6 +22,7 @@ def test_task_help_mentions_proof_pack(capsys) -> None:
     captured = capsys.readouterr()
     assert exc.value.code == 0
     assert "proof-pack" in captured.out
+    assert "resume-brief" in captured.out
 
 
 def test_doctor_command_reports_ok(capsys) -> None:

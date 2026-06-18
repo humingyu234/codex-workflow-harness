@@ -13,6 +13,7 @@ def test_core_harness_docs_exist() -> None:
         "docs/task_modes.md",
         "docs/review_process.md",
         "docs/proof_pack.md",
+        "docs/resume_brief.md",
         "docs/zh/workflow_explained.md",
     ]
 

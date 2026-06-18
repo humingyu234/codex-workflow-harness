@@ -17,6 +17,7 @@ from .review import (
     create_review_brief,
     record_review,
 )
+from .resume import ResumeBriefRequest, create_resume_brief
 from .tasks import TaskStartRequest, start_task
 from .verification import TaskVerifyRequest, verify_task
 
@@ -144,6 +145,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=".",
         help="Target project root. Defaults to the current directory.",
     )
+    task_resume_brief = task_subparsers.add_parser("resume-brief", help="Generate a fresh-session handoff brief.")
+    task_resume_brief.add_argument("task_id", nargs="?", help="Task id. Defaults to the latest task.")
+    task_resume_brief.add_argument(
+        "--root",
+        default=".",
+        help="Target project root. Defaults to the current directory.",
+    )
     return parser
 
 
@@ -240,6 +248,22 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error(str(exc))
         print(f"Proof pack: {result.proof_path}")
         print(f"Metadata: {result.metadata_path}")
+        return 0
+
+    if args.command == "task" and args.task_command == "resume-brief":
+        try:
+            result = create_resume_brief(
+                ResumeBriefRequest(
+                    root=Path(args.root),
+                    task_id=args.task_id,
+                )
+            )
+        except FileNotFoundError as exc:
+            parser.error(str(exc))
+        print(f"Resume brief: {result.brief_path}")
+        print(f"Metadata: {result.metadata_path}")
+        print(f"Status: {result.status}")
+        print(f"Next: {result.next_step}")
         return 0
 
     parser.print_help()
