@@ -14,6 +14,8 @@ def test_core_harness_docs_exist() -> None:
         "docs/review_process.md",
         "docs/proof_pack.md",
         "docs/resume_brief.md",
+        "docs/project_profile.md",
+        "docs/recipes.md",
         "docs/zh/workflow_explained.md",
     ]
 
@@ -28,10 +30,24 @@ def test_templates_exist() -> None:
         "phase.md",
         "review.md",
         "proof_pack.md",
+        "project_profile.md",
     ]
 
     for name in expected:
         assert (ROOT / "docs" / "templates" / name).exists(), name
+
+
+def test_recipes_exist() -> None:
+    expected = [
+        "bugfix.md",
+        "feature.md",
+        "refactor.md",
+        "take-home.md",
+        "open-source-pr.md",
+    ]
+
+    for name in expected:
+        assert (ROOT / "docs" / "recipes" / name).exists(), name
 
 
 def test_workflow_names_codex_and_proof_boundary() -> None:

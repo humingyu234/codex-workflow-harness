@@ -26,6 +26,7 @@ Current CLI commands:
 
 ```bash
 codex-harness doctor
+codex-harness project init --name "My Project"
 codex-harness task start "Add worker doctor" \
   --mode controlled \
   --allowed src/ \
@@ -37,10 +38,14 @@ codex-harness task review-brief
 codex-harness task review-record --verdict pass --reviewer fresh-codex
 codex-harness task proof-pack
 codex-harness task resume-brief
+codex-harness task status
 ```
 
 `task start` creates a task directory under `.codex-harness/tasks/` with a
 contract, git baseline, spec, plan, first phase handoff, and task log.
+
+`project init` writes `.codex-harness/project-profile.md` and starter recipes
+for bugfix, feature, refactor, take-home, and open-source PR workflows.
 
 `task verify` compares the current git status with the task baseline, checks
 allowed/denied file boundaries, runs required checks, and writes `verify.json`
@@ -59,6 +64,10 @@ P0/P1 findings.
 `task resume-brief` generates a fresh-session handoff with current status,
 latest evidence, changed files, files to inspect first, and the recommended
 next step.
+
+`task status` prints the current fact-based workflow state, such as
+`needs_verify`, `needs_review`, `needs_reverify`, `ready_for_proof_pack`, or
+`ready_for_delivery`.
 
 ## Development
 

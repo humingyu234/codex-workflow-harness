@@ -64,6 +64,7 @@ required checks 的真实输出
 大型任务不要一口气全做完。更稳的方式是：
 
 ```text
+0. 新项目先用 project init 写 project-profile 和 recipes
 1. 先把需求变成 spec
 2. 再拆成 plan 和 phase
 3. 用 task start 记录边界和 baseline
@@ -71,10 +72,28 @@ required checks 的真实输出
 5. task verify 记录真实检查结果
 6. review-brief 交给 fresh reviewer
 7. 只修 P0/P1 问题
-8. 最后生成 proof pack
+8. 最后生成 proof pack / resume brief
 ```
 
 这套流程的重点不是“慢”，而是避免最后才发现方向错了、证据旧了、review 看错材料了。
+
+如果只是想知道当前任务卡在哪一步，可以跑：
+
+```bash
+codex-harness task status
+```
+
+它不指挥 Codex 写代码，只根据已有事实告诉你：
+
+```text
+needs_verify
+needs_reverify
+needs_review
+needs_review_refresh
+needs_repair
+ready_for_proof_pack
+ready_for_delivery
+```
 
 ## 为什么先做 evidence，再做 review/proof
 
@@ -121,6 +140,12 @@ docs/proof_pack.md
 
 docs/templates/
 spec、plan、phase、review、proof 的模板骨架。
+
+.codex-harness/project-profile.md
+某个具体项目自己的技术栈、路径、检查命令和保护路径。
+
+.codex-harness/recipes/
+不同任务类型的流程卡片，比如 bugfix、feature、refactor、take-home、open-source-pr。
 ```
 
 ## 暂时不做什么

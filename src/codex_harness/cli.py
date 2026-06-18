@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import __version__
+from .profile import ProjectInitRequest, init_project_profile
 from .proof import (
     ProofPackBlockedError,
     ProofPackRequest,
@@ -18,6 +19,7 @@ from .review import (
     record_review,
 )
 from .resume import ResumeBriefRequest, create_resume_brief
+from .status import TaskStatusRequest, read_task_status, render_task_status
 from .tasks import TaskStartRequest, start_task
 from .verification import TaskVerifyRequest, verify_task
 
@@ -37,6 +39,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("doctor", help="Check that the harness CLI is installed correctly.")
+
+    project_parser = subparsers.add_parser("project", help="Initialize project-level harness assets.")
+    project_subparsers = project_parser.add_subparsers(dest="project_command")
+    project_init = project_subparsers.add_parser("init", help="Write a project profile and task recipes.")
+    project_init.add_argument(
+        "--root",
+        default=".",
+        help="Target project root. Defaults to the current directory.",
+    )
+    project_init.add_argument(
+        "--name",
+        default=None,
+        help="Project name to write into the profile. Defaults to the root directory name.",
+    )
+    project_init.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing profile and recipes.",
+    )
 
     task_parser = subparsers.add_parser("task", help="Manage task contracts and delivery artifacts.")
     task_subparsers = task_parser.add_subparsers(dest="task_command")
@@ -152,6 +173,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=".",
         help="Target project root. Defaults to the current directory.",
     )
+    task_status = task_subparsers.add_parser("status", help="Report the current task workflow state.")
+    task_status.add_argument("task_id", nargs="?", help="Task id. Defaults to the latest task.")
+    task_status.add_argument(
+        "--root",
+        default=".",
+        help="Target project root. Defaults to the current directory.",
+    )
     return parser
 
 
@@ -161,6 +189,20 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "doctor":
         print("codex-harness: ok")
+        return 0
+
+    if args.command == "project" and args.project_command == "init":
+        result = init_project_profile(
+            ProjectInitRequest(
+                root=Path(args.root),
+                name=args.name,
+                force=args.force,
+            )
+        )
+        print(f"Project profile: {result.profile_path}")
+        print(f"Recipes written: {len(result.recipe_paths)}")
+        if result.skipped_paths:
+            print(f"Skipped existing files: {len(result.skipped_paths)}")
         return 0
 
     if args.command == "task" and args.task_command == "start":
@@ -264,6 +306,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Metadata: {result.metadata_path}")
         print(f"Status: {result.status}")
         print(f"Next: {result.next_step}")
+        return 0
+
+    if args.command == "task" and args.task_command == "status":
+        try:
+            result = read_task_status(
+                TaskStatusRequest(
+                    root=Path(args.root),
+                    task_id=args.task_id,
+                )
+            )
+        except FileNotFoundError as exc:
+            parser.error(str(exc))
+        print(render_task_status(result))
         return 0
 
     parser.print_help()

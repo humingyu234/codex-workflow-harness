@@ -12,6 +12,7 @@ def test_help_parser_mentions_project_name() -> None:
 
     assert "codex-harness" in help_text
     assert "doctor" in help_text
+    assert "project" in help_text
     assert "task" in help_text
 
 
@@ -23,6 +24,16 @@ def test_task_help_mentions_proof_pack(capsys) -> None:
     assert exc.value.code == 0
     assert "proof-pack" in captured.out
     assert "resume-brief" in captured.out
+    assert "status" in captured.out
+
+
+def test_project_help_mentions_init(capsys) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["project", "--help"])
+
+    captured = capsys.readouterr()
+    assert exc.value.code == 0
+    assert "init" in captured.out
 
 
 def test_doctor_command_reports_ok(capsys) -> None:

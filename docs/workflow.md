@@ -34,6 +34,16 @@ end-to-end flow.
 
 Use this path for multi-file, risky, reviewable, or externally delivered work.
 
+### 0. Initialize Project Profile
+
+For a new project, create a project profile and starter recipes once.
+
+```bash
+codex-harness project init
+```
+
+This writes `.codex-harness/project-profile.md` and `.codex-harness/recipes/`.
+
 ### 1. Clarify
 
 Turn the raw request into a short spec and acceptance criteria. For uncertain
@@ -116,6 +126,18 @@ codex-harness task resume-brief
 
 The resume brief reports the current task status, latest evidence, changed
 files, files to inspect first, and the next recommended step.
+
+### 9. Status Check
+
+When you only need to know where the task currently stands, run:
+
+```bash
+codex-harness task status
+```
+
+This is the lightweight dashboard. It reports the current state from existing
+verify, review, proof, and source-state facts without taking over Codex or
+Claude Code's implementation loop.
 
 ## Non-Goals
 
